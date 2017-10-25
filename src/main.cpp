@@ -3802,8 +3802,9 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, CWallet* pwallet, bool fProofOfS
     static int64 nLastCoinStakeSearchTime = GetAdjustedTime();  // only initialized at startup
     CBlockIndex* pindexPrev = pindexBest;
 
-    if (fProofOfStake)  // attemp to find a coinstake
+    if (fProofOfStake)  // attempt to find a coinstake
     {
+        bool staking = false;
         pblock->nBits = GetNextTargetRequired(pindexPrev, true);
         CTransaction txCoinStake;
         int64 nSearchTime = txCoinStake.nTime; // search to current time
@@ -3817,10 +3818,15 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, CWallet* pwallet, bool fProofOfS
                     pblock->vtx[0].vout[0].SetEmpty();
                     pblock->vtx[0].nTime = txCoinStake.nTime;
                     pblock->vtx.push_back(txCoinStake);
+                    staking = true;
                 }
             }
             nLastCoinStakeSearchInterval = nSearchTime - nLastCoinStakeSearchTime;
             nLastCoinStakeSearchTime = nSearchTime;
+        }
+
+        if (!staking) {
+            return pblock.release();
         }
     }
 
@@ -3928,6 +3934,7 @@ CBlock* CreateNewBlock(CReserveKey& reservekey, CWallet* pwallet, bool fProofOfS
 
             int64 nTxFees = tx.GetValueIn(mapInputs)-tx.GetValueOut();
             if (nTxFees < nMinFee)
+                printf("Fees too low (%lld < %lld)\n", nTxFees, nMinFee);
                 continue;
 
             nTxSigOps += tx.GetP2SHSigOpCount(mapInputs);
